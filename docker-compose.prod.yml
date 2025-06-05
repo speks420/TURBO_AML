@@ -1,0 +1,263 @@
+# TURBO_AML Production Environment
+# Optimized for standalone PC deployment with monitoring and persistence
+
+version: '3.8'
+
+services:
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: turbo_aml_nginx_prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - turbo_aml_network
+
+  # Backend API service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: turbo_aml_backend_prod
+    expose:
+      - "8000"
+    environment:
+      - DEBUG=False
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - CKAN_BASE_URL=https://data.gov.lv/dati/lv/
+      - CKAN_COMPANY_RESOURCE_ID=${CKAN_COMPANY_RESOURCE_ID}
+      - CKAN_CAPITAL_RESOURCE_ID=${CKAN_CAPITAL_RESOURCE_ID}
+      - CKAN_BENEFICIARY_RESOURCE_ID=${CKAN_BENEFICIARY_RESOURCE_ID}
+      - CKAN_MEMBERS_RESOURCE_ID=${CKAN_MEMBERS_RESOURCE_ID}
+      - CKAN_BUSINESS_RESOURCE_ID=${CKAN_BUSINESS_RESOURCE_ID}
+      - CKAN_LIQUIDATION_RESOURCE_ID=${CKAN_LIQUIDATION_RESOURCE_ID}
+      - CKAN_OFFICERS_RESOURCE_ID=${CKAN_OFFICERS_RESOURCE_ID}
+      - CKAN_STOCKHOLDERS_RESOURCE_ID=${CKAN_STOCKHOLDERS_RESOURCE_ID}
+      - FINANCIAL_HEALTH_ALGORITHM_VERSION=v2.1
+      - RISK_ASSESSMENT_MODEL=enhanced_2024
+      - ENABLE_PREDICTIVE_ANALYTICS=true
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - backend_logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - redis
+    networks:
+      - turbo_aml_network
+
+  # Frontend React application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: turbo_aml_frontend_prod
+    expose:
+      - "80"
+    environment:
+      - VITE_API_URL=${FRONTEND_API_URL:-http://localhost/api}
+      - VITE_SUPABASE_URL=${SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - VITE_ENABLE_ADVANCED_CHARTS=true
+      - VITE_ENABLE_EXPORT_FEATURES=true
+      - VITE_ENABLE_REAL_TIME_UPDATES=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - turbo_aml_network
+
+  # Redis cache service
+  redis:
+    image: redis:7-alpine
+    container_name: turbo_aml_redis_prod
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - turbo_aml_network
+
+  # PostgreSQL database (local Supabase alternative)
+  postgres:
+    image: postgres:15-alpine
+    container_name: turbo_aml_postgres_prod
+    environment:
+      - POSTGRES_DB=turbo_aml
+      - POSTGRES_USER=${POSTGRES_USER:-turbo_aml}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      - postgres_backups:/backups
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-turbo_aml} -d turbo_aml"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - turbo_aml_network
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: turbo_aml_prometheus_prod
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - turbo_aml_network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: turbo_aml_grafana_prod
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    networks:
+      - turbo_aml_network
+
+  # Backup service
+  backup:
+    image: alpine:latest
+    container_name: turbo_aml_backup_prod
+    volumes:
+      - postgres_data:/data/postgres:ro
+      - redis_data:/data/redis:ro
+      - backend_logs:/data/logs:ro
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh:ro
+    command: sh -c "chmod +x /backup.sh && crond -f"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-turbo_aml}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - BACKUP_RETENTION_DAYS=30
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - turbo_aml_network
+
+  # Log aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: turbo_aml_loki_prod
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+      - ./monitoring/loki.yml:/etc/loki/loki.yml:ro
+    command: -config.file=/etc/loki/loki.yml
+    restart: unless-stopped
+    networks:
+      - turbo_aml_network
+
+  # Log collection
+  promtail:
+    image: grafana/promtail:latest
+    container_name: turbo_aml_promtail_prod
+    volumes:
+      - backend_logs:/var/log/backend:ro
+      - nginx_logs:/var/log/nginx:ro
+      - ./monitoring/promtail.yml:/etc/promtail/promtail.yml:ro
+    command: -config.file=/etc/promtail/promtail.yml
+    restart: unless-stopped
+    depends_on:
+      - loki
+    networks:
+      - turbo_aml_network
+
+volumes:
+  # Application data
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  
+  # Logs
+  backend_logs:
+    driver: local
+  nginx_logs:
+    driver: local
+  
+  # Monitoring
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
+    driver: local
+  
+  # Backups
+  postgres_backups:
+    driver: local
+
+networks:
+  turbo_aml_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+
+# Health check and monitoring endpoints
+# Backend: http://localhost:8000/health
+# Frontend: http://localhost/health
+# Prometheus: http://localhost:9090
+# Grafana: http://localhost:3000 (admin/admin)
+# PostgreSQL: localhost:5432 

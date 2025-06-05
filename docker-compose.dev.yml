@@ -1,0 +1,118 @@
+# TURBO_AML Development Environment
+# This configuration is optimized for development with hot reloading and debugging
+
+version: '3.8'
+
+services:
+  # Backend API service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development
+    container_name: turbo_aml_backend_dev
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - CKAN_BASE_URL=https://data.gov.lv/dati/lv/
+      - CKAN_COMPANY_RESOURCE_ID=${CKAN_COMPANY_RESOURCE_ID}
+      - CKAN_CAPITAL_RESOURCE_ID=${CKAN_CAPITAL_RESOURCE_ID}
+      - CKAN_BENEFICIARY_RESOURCE_ID=${CKAN_BENEFICIARY_RESOURCE_ID}
+      - CKAN_MEMBERS_RESOURCE_ID=${CKAN_MEMBERS_RESOURCE_ID}
+      - CKAN_BUSINESS_RESOURCE_ID=${CKAN_BUSINESS_RESOURCE_ID}
+      - CKAN_LIQUIDATION_RESOURCE_ID=${CKAN_LIQUIDATION_RESOURCE_ID}
+      - CKAN_OFFICERS_RESOURCE_ID=${CKAN_OFFICERS_RESOURCE_ID}
+      - CKAN_STOCKHOLDERS_RESOURCE_ID=${CKAN_STOCKHOLDERS_RESOURCE_ID}
+      - FINANCIAL_HEALTH_ALGORITHM_VERSION=v2.1
+      - RISK_ASSESSMENT_MODEL=enhanced_2024
+      - ENABLE_PREDICTIVE_ANALYTICS=true
+    volumes:
+      - ./backend:/app
+      - backend_cache:/app/.cache
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - turbo_aml_network
+
+  # Frontend React service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: turbo_aml_frontend_dev
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_SUPABASE_URL=${SUPABASE_URL}
+      - VITE_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - VITE_ENABLE_ADVANCED_CHARTS=true
+      - VITE_ENABLE_EXPORT_FEATURES=true
+      - VITE_ENABLE_REAL_TIME_UPDATES=true
+      - VITE_FINANCIAL_DATA_CACHE_TTL=3600
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - frontend_cache:/app/.cache
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      - backend
+    networks:
+      - turbo_aml_network
+
+  # Redis cache for development (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: turbo_aml_redis_dev
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - turbo_aml_network
+
+  # Development tools container
+  dev_tools:
+    image: node:18-alpine
+    container_name: turbo_aml_dev_tools
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - dev_tools_cache:/root/.cache
+    command: tail -f /dev/null  # Keep container running
+    networks:
+      - turbo_aml_network
+
+volumes:
+  backend_cache:
+    driver: local
+  frontend_cache:
+    driver: local
+  redis_data:
+    driver: local
+  dev_tools_cache:
+    driver: local
+
+networks:
+  turbo_aml_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16 

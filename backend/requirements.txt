@@ -1,0 +1,10 @@
+fastapi==0.110.0
+uvicorn==0.29.0
+pydantic==2.7.1
+pydantic-settings==2.2.1
+python-dotenv==1.0.1
+ckanapi==4.7.0
+httpx>=0.27.0,<0.29.0
+supabase==2.5.2
+pytest==8.0.0
+requests==2.31.0 
