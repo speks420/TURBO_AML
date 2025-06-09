@@ -544,6 +544,7 @@ class FinancialAnalysisService:
 
     def calculate_health_score(
         self,
+        registration_number: str,
         balance_sheets: List[BalanceSheet],
         income_statements: List[IncomeStatement],
         cash_flows: List[CashFlowStatement] = None,
@@ -553,6 +554,7 @@ class FinancialAnalysisService:
         Calculate comprehensive financial health score.
         
         Args:
+            registration_number: Registration number of the company
             balance_sheets: List of balance sheet data
             income_statements: List of income statement data
             cash_flows: Optional list of cash flow data
@@ -612,7 +614,7 @@ class FinancialAnalysisService:
         altman_z_score = self._calculate_altman_z_score(latest_balance, latest_income)
         
         return FinancialHealthAssessment(
-            registration_number=latest_balance.statement_id or "",  # This should be reg number
+            registration_number=registration_number,
             health_score=round(health_score, 1),
             health_grade=health_grade,
             liquidity_score=round(liquidity_score, 1),

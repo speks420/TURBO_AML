@@ -218,6 +218,7 @@ async def get_company_health_score(
         
         # Calculate health score with taxpayer ratings
         health_assessment = financial_analysis_service.calculate_health_score(
+            registration_number=reg_number,
             balance_sheets=balance_sheets,
             income_statements=income_statements,
             cash_flows=cash_flows,
