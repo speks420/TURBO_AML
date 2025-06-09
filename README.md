@@ -162,12 +162,11 @@ docker-compose -f docker-compose.dev.yml up
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### **Multi-Container Setup for Standalone PC**
-- **Database Container**: Supabase local instance
+### **Multi-Container Setup**
 - **Backend Container**: FastAPI with financial calculation engines
 - **Frontend Container**: React app with Nginx
-- **Analytics Container**: Data processing and ML models
-- **Monitoring Container**: Logging and performance metrics
+- **Cache Container**: Redis for improved performance
+- **Proxy Container**: Nginx reverse proxy for production
 
 ## 🔧 Configuration
 
@@ -228,18 +227,18 @@ VITE_FINANCIAL_DATA_CACHE_TTL=3600
 
 ## 🚢 Deployment Strategy
 
-### **Standalone PC Deployment**
+### **Docker Deployment**
 1. **GitHub Repository** - Source code management
 2. **Docker Compose** - Multi-container orchestration
-3. **Local Database** - Supabase local instance or PostgreSQL
+3. **Supabase Cloud** - Managed database and authentication
 4. **Nginx Reverse Proxy** - Load balancing and SSL
-5. **Automated Backups** - Data persistence and recovery
+5. **Redis Cache** - Performance optimization
 
 ### **Cloud Deployment Options**
-- **Supabase Cloud** - Managed database and authentication
 - **Vercel/Netlify** - Frontend hosting with CDN
-- **Railway/Render** - Backend API hosting
-- **Docker Swarm** - Container orchestration
+- **Railway/Render** - Backend API hosting  
+- **DigitalOcean/AWS** - VPS with Docker Compose
+- **Heroku** - Container deployment
 
 ## 🔮 Roadmap
 

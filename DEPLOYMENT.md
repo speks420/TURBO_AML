@@ -26,11 +26,10 @@ Complete deployment instructions for the **Advanced Latvian Business Intelligenc
 ├─────────────────────────────────────────────────────────────┤
 │  Load Balancer (Nginx)                                     │
 ├─────────────────┬─────────────────┬─────────────────────────┤
-│   Frontend      │    Backend      │    Analytics            │
-│   (React+Nginx) │    (FastAPI)    │    (Prometheus+Grafana) │
+│   Frontend      │    Backend      │    Cache Layer          │
+│   (React+Nginx) │    (FastAPI)    │    (Redis)              │
 ├─────────────────┼─────────────────┼─────────────────────────┤
-│        Cache Layer (Redis)        │    Database             │
-│                                   │    (Supabase/PostgreSQL)│
+│            Database (Supabase Cloud)                       │
 ├─────────────────────────────────────────────────────────────┤
 │            External APIs (data.gov.lv CKAN)                │
 └─────────────────────────────────────────────────────────────┘
@@ -95,13 +94,25 @@ VITE_ENABLE_REAL_TIME_UPDATES=true
 VITE_FINANCIAL_DATA_CACHE_TTL=3600
 ```
 
-#### **Production Environment** (`.env.prod`)
+#### **Root Environment** (`.env`)
 ```bash
-# Production-specific settings
-POSTGRES_USER=turbo_aml
-POSTGRES_PASSWORD=your_secure_password
-GRAFANA_PASSWORD=your_grafana_password
-FRONTEND_API_URL=http://localhost/api
+# Supabase Configuration (same as backend)
+SUPABASE_URL=https://padpihlwiriychsmsoyo.supabase.co
+SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+# CKAN Resource IDs
+CKAN_COMPANY_RESOURCE_ID=25e80bf3-f107-4ab4-89ef-251b5b9374e9
+CKAN_CAPITAL_RESOURCE_ID=7910fef5-93eb-4d03-acf0-f45465d67414
+CKAN_BENEFICIARY_RESOURCE_ID=20a9b26d-d056-4dbb-ae18-9ff23c87bdee
+CKAN_MEMBERS_RESOURCE_ID=837b451a-4833-4fd1-bfdd-b45b35a994fd
+CKAN_BUSINESS_RESOURCE_ID=49bbd751-3fa2-4d78-8c35-ae0e1c5250d6
+CKAN_LIQUIDATION_RESOURCE_ID=59e7ec49-f1c6-4410-8ee6-e7737ac5eaee
+CKAN_OFFICERS_RESOURCE_ID=e665114a-73c2-4375-9470-55874b4cfa6b
+CKAN_STOCKHOLDERS_RESOURCE_ID=6adabd83-93f9-4d7f-bebd-fa109bbf794a
+
+# Frontend API URL (for production nginx routing)
+FRONTEND_API_URL=/api
 ```
 
 ## 🚢 Deployment Options
@@ -120,16 +131,16 @@ docker-compose -f docker-compose.dev.yml up -d
 ```
 
 ### **Option 2: Production Environment**
-Optimized for standalone PC deployment with monitoring:
+Optimized for production deployment with nginx:
 
 ```bash
 # Build and start production environment
 docker-compose -f docker-compose.prod.yml up -d
 
 # Access services:
-# Application: http://localhost
-# Monitoring: http://localhost:3000 (Grafana)
-# Metrics: http://localhost:9090 (Prometheus)
+# Application: http://localhost (nginx proxy)
+# Backend API: http://localhost/api
+# Backend Direct: http://localhost:8000 (if needed)
 ```
 
 ## 📊 Financial Intelligence Implementation Plan
