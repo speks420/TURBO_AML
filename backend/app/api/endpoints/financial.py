@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Path, HTTPException, Query
 from typing import Optional
 from app.services.ckan_service import ckan_service
+from app.services.financial_analysis import financial_analysis_service
+from app.models.financial import BalanceSheet, IncomeStatement, CashFlowStatement, FinancialHealthAssessment
 
 router = APIRouter()
 
@@ -189,3 +191,43 @@ async def debug_financial_data(reg_number: str):
             "error": str(e),
             "message": "Error during debug - check console logs"
         }
+
+@router.get("/financial/{reg_number}/health-score", response_model=FinancialHealthAssessment)
+async def get_company_health_score(
+    reg_number: str = Path(..., description="Company registration number"),
+    years: Optional[int] = Query(5, description="Number of years to analyze")
+):
+    """Get comprehensive financial health score including taxpayer ratings."""
+    try:
+        # Get financial data
+        multi_year_data = ckan_service.get_multi_year_financial_data(reg_number, years)
+        balance_sheets_data = multi_year_data.get("balance_sheets", [])
+        income_statements_data = multi_year_data.get("income_statements", [])
+        cash_flows_data = multi_year_data.get("cash_flows", [])
+        
+        # Get taxpayer ratings
+        taxpayer_ratings = ckan_service.get_taxpayer_ratings(reg_number)
+        
+        if not balance_sheets_data or not income_statements_data:
+            raise HTTPException(status_code=404, detail=f"Insufficient financial data for health assessment of company {reg_number}")
+        
+        # Convert to Pydantic models
+        balance_sheets = [BalanceSheet(**sheet) for sheet in balance_sheets_data]
+        income_statements = [IncomeStatement(**stmt) for stmt in income_statements_data]
+        cash_flows = [CashFlowStatement(**flow) for flow in cash_flows_data] if cash_flows_data else None
+        
+        # Calculate health score with taxpayer ratings
+        health_assessment = financial_analysis_service.calculate_health_score(
+            balance_sheets=balance_sheets,
+            income_statements=income_statements,
+            cash_flows=cash_flows,
+            taxpayer_ratings=taxpayer_ratings
+        )
+        
+        return health_assessment
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Health score calculation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error calculating health score: {str(e)}")

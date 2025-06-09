@@ -82,6 +82,14 @@ class StockholderData(BaseModel):
     last_modified_at: Optional[str] = Field(None, description="Last modified date")
     # Add other stockholder fields as needed
 
+class TaxpayerRatingData(BaseModel):
+    """Model for taxpayer rating data."""
+    registracijas_kods: Optional[str] = Field(None, description="Registration code")
+    nosaukums: Optional[str] = Field(None, description="Company name")
+    reitings: Optional[str] = Field(None, description="Rating")
+    skaidrojums: Optional[str] = Field(None, description="Explanation")
+    informacijas_atjaunosanas_datums: Optional[str] = Field(None, description="Information update date")
+
 class BusinessData(BaseModel):
     """Model for company business activity data."""
     legal_entity_registration_number: Optional[str] = Field(None, description="Legal entity registration number")
@@ -156,6 +164,9 @@ class CompanyResponse(CompanyBase):
     is_stock_company: bool = Field(False, description="Flag indicating if the company is a stock company (AS)")
     
     registry_data: Optional[Dict[str, Any]] = Field(None, description="Raw registry data")
+    
+    # Add taxpayer ratings field
+    taxpayer_ratings: Optional[List[TaxpayerRatingData]] = Field(None, description="Company taxpayer ratings")
     
     class Config:
         """Pydantic config."""

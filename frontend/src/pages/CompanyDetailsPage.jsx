@@ -26,6 +26,7 @@ import Layout from '../components/layout/Layout';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import SearchHistoryDrawer from '../components/ui/SearchHistoryDrawer';
 import FinancialOverview from '../components/ui/FinancialOverview';
+import HealthScoreCard from '../components/ui/HealthScoreCard';
 import useCompanyDetails from '../hooks/useCompanyDetails';
 import { formatDate, formatStatus, formatRegNumber } from '../utils/formatters';
 
@@ -94,6 +95,7 @@ const CompanyDetailsPage = () => {
     liquidation_data = [],
     officers_data = [],
     stockholders_data = [],
+    taxpayer_ratings = [],
     has_liquidation_process = false,
     is_stock_company = false,
     registry_data = {}
@@ -210,6 +212,64 @@ const CompanyDetailsPage = () => {
         </Grid>
 
         <Divider />
+
+        {/* Taxpayer Ratings Section */}
+        {taxpayer_ratings && taxpayer_ratings.length > 0 && (
+          <>
+            <Box>
+              <Heading as="h3" size="md" mb={4} color="blue.600">Taxpayer Rating</Heading>
+              <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap={6}>
+                {taxpayer_ratings.map((rating, index) => (
+                  <GridItem key={index}>
+                    <Box 
+                      p={4} 
+                      borderWidth="1px" 
+                      borderRadius="md" 
+                      borderColor="blue.200"
+                      bg="blue.50"
+                    >
+                      <VStack align="start" spacing={3}>
+                        <HStack justifyContent="space-between" w="100%">
+                          <Text fontWeight="bold" color="blue.700">Rating</Text>
+                          <Badge 
+                            colorScheme={
+                              rating.reitings === 'Augsts' ? 'green' :
+                              rating.reitings === 'Vidējs' ? 'yellow' :
+                              rating.reitings === 'Zems' ? 'red' : 'gray'
+                            }
+                            fontSize="md"
+                            p={2}
+                          >
+                            {rating.reitings || 'Not Available'}
+                          </Badge>
+                        </HStack>
+                        
+                        {rating.skaidrojums && (
+                          <Box>
+                            <Text fontWeight="bold" color="gray.700" fontSize="sm">Explanation</Text>
+                            <Text fontSize="sm" color="gray.600">
+                              {rating.skaidrojums}
+                            </Text>
+                          </Box>
+                        )}
+                        
+                        {rating.informacijas_atjaunosanas_datums && (
+                          <Box>
+                            <Text fontWeight="bold" color="gray.700" fontSize="sm">Last Updated</Text>
+                            <Text fontSize="sm" color="gray.600">
+                              {formatDate(rating.informacijas_atjaunosanas_datums)}
+                            </Text>
+                          </Box>
+                        )}
+                      </VStack>
+                    </Box>
+                  </GridItem>
+                ))}
+              </Grid>
+            </Box>
+            <Divider />
+          </>
+        )}
 
         {/* Company Officers Data - New Section */}
         {officers_data && officers_data.length > 0 && (
@@ -474,6 +534,9 @@ const CompanyDetailsPage = () => {
             <Divider />
           </>
         )}
+
+        {/* Health Score */}
+        <HealthScoreCard regNumber={registration_number} />
 
         {/* Financial Overview */}
         <FinancialOverview regNumber={registration_number} />

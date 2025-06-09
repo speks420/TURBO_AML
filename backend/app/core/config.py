@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     CKAN_OFFICERS_RESOURCE_ID: str = os.getenv("CKAN_OFFICERS_RESOURCE_ID", "e665114a-73c2-4375-9470-55874b4cfa6b")
     # Company stockholders data
     CKAN_STOCKHOLDERS_RESOURCE_ID: str = os.getenv("CKAN_STOCKHOLDERS_RESOURCE_ID", "6adabd83-93f9-4d7f-bebd-fa109bbf794a")
+    # Taxpayer ratings data
+    CKAN_TAXPAYER_RATINGS_RESOURCE_ID: str = os.getenv("CKAN_TAXPAYER_RATINGS_RESOURCE_ID", "acd4c6f9-5123-46a5-80f6-1f44b4517f58")
     
     # Supabase settings
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")

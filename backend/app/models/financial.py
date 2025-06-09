@@ -222,6 +222,7 @@ class FinancialHealthAssessment(BaseModel):
     solvency_score: Optional[float] = None
     efficiency_score: Optional[float] = None
     growth_score: Optional[float] = None
+    taxpayer_rating_score: Optional[float] = None
     
     # Risk Assessment
     risk_level: str  # LOW, MEDIUM, HIGH, CRITICAL

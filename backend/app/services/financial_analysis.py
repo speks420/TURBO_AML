@@ -24,11 +24,12 @@ class FinancialAnalysisService:
     def __init__(self):
         # Health score weights (must sum to 1.0)
         self.HEALTH_SCORE_WEIGHTS = {
-            'liquidity': 0.25,      # Ability to pay short-term obligations
-            'profitability': 0.30,   # Revenue generation efficiency
-            'solvency': 0.20,       # Long-term financial stability
+            'liquidity': 0.20,      # Ability to pay short-term obligations
+            'profitability': 0.25,   # Revenue generation efficiency
+            'solvency': 0.15,       # Long-term financial stability
             'efficiency': 0.15,     # Asset utilization effectiveness
-            'growth': 0.10          # Business expansion trends
+            'growth': 0.10,         # Business expansion trends
+            'taxpayer_rating': 0.15 # Tax compliance rating
         }
         
         # Risk level thresholds
@@ -407,59 +408,146 @@ class FinancialAnalysisService:
         Based on revenue growth, profit growth, and asset growth.
         """
         if not growth_rates:
-            return 50  # Neutral score if no growth data
-            
+            return 50.0  # Neutral score if no growth data
+        
         score = 0.0
+        weights = {
+            'revenue_growth': 0.5,
+            'profit_growth': 0.3,
+            'assets_growth': 0.2
+        }
         
-        # Revenue Growth scoring (weight: 40%)
-        revenue_growth = growth_rates.get('revenue_growth', 0)
-        if revenue_growth >= 20:
-            score += 40
-        elif revenue_growth >= 10:
-            score += 32
-        elif revenue_growth >= 5:
-            score += 25
-        elif revenue_growth >= 0:
-            score += 15
-        elif revenue_growth >= -5:
-            score += 8
-        # Below -5%: 0 points
+        for metric, weight in weights.items():
+            growth_rate = growth_rates.get(metric, 0.0)
+            
+            # Score based on growth rate ranges
+            if growth_rate >= 0.15:  # 15%+ growth
+                metric_score = 100
+            elif growth_rate >= 0.10:  # 10-15% growth
+                metric_score = 80
+            elif growth_rate >= 0.05:  # 5-10% growth
+                metric_score = 60
+            elif growth_rate >= 0.0:   # 0-5% growth
+                metric_score = 40
+            elif growth_rate >= -0.05: # -5-0% growth
+                metric_score = 20
+            else:  # Below -5% growth
+                metric_score = 0
+            
+            score += metric_score * weight
         
-        # Profit Growth scoring (weight: 40%)
-        profit_growth = growth_rates.get('profit_growth', 0)
-        if profit_growth >= 25:
-            score += 40
-        elif profit_growth >= 15:
-            score += 32
-        elif profit_growth >= 5:
-            score += 25
-        elif profit_growth >= 0:
-            score += 15
-        elif profit_growth >= -10:
-            score += 8
-        # Below -10%: 0 points
+        return min(100.0, max(0.0, score))
+
+    def calculate_taxpayer_rating_score(self, taxpayer_ratings: List) -> float:
+        """
+        Calculate taxpayer rating component score (0-100).
         
-        # Asset Growth scoring (weight: 20%)
-        assets_growth = growth_rates.get('assets_growth', 0)
-        if assets_growth >= 15:
-            score += 20
-        elif assets_growth >= 10:
-            score += 16
-        elif assets_growth >= 5:
-            score += 12
-        elif assets_growth >= 0:
-            score += 8
-        elif assets_growth >= -5:
-            score += 4
-        # Below -5%: 0 points
+        Args:
+            taxpayer_ratings: List of TaxpayerRatingData objects
+            
+        Returns:
+            Score based on latest taxpayer rating
+        """
+        if not taxpayer_ratings:
+            return 50.0  # Neutral score if no rating data
         
-        return min(100, score)
+        # Get the most recent rating (assuming the list is sorted or take the first one)
+        latest_rating = taxpayer_ratings[0]
+        rating_value = latest_rating.reitings if hasattr(latest_rating, 'reitings') else None
+        
+        if not rating_value:
+            return 50.0  # Neutral score if no rating value
+        
+        rating_value = str(rating_value).strip()
+        
+        # Convert rating to score based on common rating systems and Latvian specific ratings
+        rating_mappings = {
+            # Standard letter grades
+            'A+': 100, 'A': 95, 'A-': 90,
+            'B+': 85, 'B': 80, 'B-': 75,
+            'C+': 70, 'C': 65, 'C-': 60,
+            'D+': 55, 'D': 50, 'D-': 45,
+            'F': 25,
+            
+            # Numeric ratings
+            '5': 100, '4': 80, '3': 60, '2': 40, '1': 20,
+            
+            # Latvian specific ratings
+            'Augsts': 90,          # High
+            'Vidējs': 65,          # Medium/Average
+            'Zems': 35,            # Low
+            'Nav': 50,             # None/Not available
+            'Nav reitinga': 50,    # No rating
+            'Pozitīvs': 85,        # Positive
+            'Negatīvs': 25,        # Negative
+            'Stabils': 75,         # Stable
+            'Nestabils': 40,       # Unstable
+            
+            # Risk-based ratings
+            'Zems risks': 90,      # Low risk
+            'Vidējs risks': 60,    # Medium risk
+            'Augsts risks': 30,    # High risk
+            
+            # Compliance ratings
+            'Labs maksātājs': 95,   # Good payer
+            'Vidējs maksātājs': 65, # Average payer
+            'Slikts maksātājs': 20, # Bad payer
+            'Laiks maksātājs': 85,  # Timely payer
+            'Nokavē maksājumus': 25, # Delays payments
+            
+            # Status indicators
+            'Aktīvs': 80,          # Active
+            'Pasīvs': 40,          # Passive
+            'Pārtraukts': 10,      # Suspended
+        }
+        
+        # Try exact match first (case insensitive)
+        for key, value in rating_mappings.items():
+            if rating_value.lower() == key.lower():
+                return float(value)
+        
+        # Try partial matches for compound ratings
+        rating_lower = rating_value.lower()
+        if any(word in rating_lower for word in ['augsts', 'high', 'labs', 'good']):
+            return 85.0
+        elif any(word in rating_lower for word in ['zems', 'low', 'slikts', 'bad']):
+            return 35.0
+        elif any(word in rating_lower for word in ['vidējs', 'medium', 'average']):
+            return 65.0
+        
+        # Try to extract numeric value if it's a number
+        try:
+            numeric_rating = float(rating_value)
+            if 1 <= numeric_rating <= 5:
+                # Scale 1-5 rating to 20-100
+                return (numeric_rating - 1) * 20 + 20
+            elif 0 <= numeric_rating <= 10:
+                # Scale 0-10 rating to 0-100
+                return numeric_rating * 10
+            elif 0 <= numeric_rating <= 100:
+                # Already in 0-100 scale
+                return numeric_rating
+        except (ValueError, TypeError):
+            pass
+        
+        # Check for percentage values
+        if '%' in rating_value:
+            try:
+                numeric_value = float(rating_value.replace('%', ''))
+                if 0 <= numeric_value <= 100:
+                    return numeric_value
+            except (ValueError, TypeError):
+                pass
+        
+        # Default to neutral score if unable to parse
+        return 50.0
 
     def calculate_health_score(
         self,
         balance_sheets: List[BalanceSheet],
         income_statements: List[IncomeStatement],
-        cash_flows: List[CashFlowStatement] = None
+        cash_flows: List[CashFlowStatement] = None,
+        taxpayer_ratings: List = None
     ) -> FinancialHealthAssessment:
         """
         Calculate comprehensive financial health score.
@@ -468,6 +556,7 @@ class FinancialAnalysisService:
             balance_sheets: List of balance sheet data
             income_statements: List of income statement data
             cash_flows: Optional list of cash flow data
+            taxpayer_ratings: Optional list of taxpayer ratings
             
         Returns:
             FinancialHealthAssessment with detailed scoring
@@ -493,13 +582,17 @@ class FinancialAnalysisService:
         efficiency_score = self.calculate_efficiency_score(latest_ratios)
         growth_score = self.calculate_growth_score(growth_rates)
         
+        # Calculate taxpayer rating score
+        taxpayer_rating_score = self.calculate_taxpayer_rating_score(taxpayer_ratings) if taxpayer_ratings else 50.0
+        
         # Calculate weighted overall health score
         health_score = (
             liquidity_score * self.HEALTH_SCORE_WEIGHTS['liquidity'] +
             profitability_score * self.HEALTH_SCORE_WEIGHTS['profitability'] +
             solvency_score * self.HEALTH_SCORE_WEIGHTS['solvency'] +
             efficiency_score * self.HEALTH_SCORE_WEIGHTS['efficiency'] +
-            growth_score * self.HEALTH_SCORE_WEIGHTS['growth']
+            growth_score * self.HEALTH_SCORE_WEIGHTS['growth'] +
+            taxpayer_rating_score * self.HEALTH_SCORE_WEIGHTS['taxpayer_rating']
         )
         
         # Determine risk level and grade
@@ -512,7 +605,7 @@ class FinancialAnalysisService:
         # Generate strengths, weaknesses, and recommendations
         strengths, weaknesses, recommendations = self._analyze_financial_position(
             latest_ratios, liquidity_score, profitability_score, 
-            solvency_score, efficiency_score, growth_score
+            solvency_score, efficiency_score, growth_score, taxpayer_rating_score
         )
         
         # Calculate Altman Z-Score if possible
@@ -527,6 +620,7 @@ class FinancialAnalysisService:
             solvency_score=round(solvency_score, 1),
             efficiency_score=round(efficiency_score, 1),
             growth_score=round(growth_score, 1),
+            taxpayer_rating_score=round(taxpayer_rating_score, 1),
             risk_level=risk_level,
             altman_z_score=altman_z_score,
             strengths=strengths,
@@ -566,7 +660,8 @@ class FinancialAnalysisService:
         profitability_score: float,
         solvency_score: float,
         efficiency_score: float,
-        growth_score: float
+        growth_score: float,
+        taxpayer_rating_score: float = None
     ) -> Tuple[List[str], List[str], List[str]]:
         """Analyze financial position and generate insights."""
         
@@ -604,6 +699,13 @@ class FinancialAnalysisService:
         elif growth_score <= 40:
             weaknesses.append("Limited growth performance")
             recommendations.append("Develop growth strategies and market expansion plans")
+        
+        if taxpayer_rating_score:
+            if taxpayer_rating_score >= 70:
+                strengths.append("Good taxpayer rating")
+            elif taxpayer_rating_score <= 40:
+                weaknesses.append("Poor taxpayer compliance")
+                recommendations.append("Improve tax compliance and payment practices")
         
         return strengths, weaknesses, recommendations
 

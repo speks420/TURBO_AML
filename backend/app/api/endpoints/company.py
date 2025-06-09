@@ -171,6 +171,26 @@ async def get_company_details(
             # Log the error but continue without stockholders data
             print(f"Error getting stockholders data: {stockholders_error}")
         
+        # Get taxpayer ratings data from ninth CKAN resource
+        taxpayer_ratings = []
+        try:
+            rating_records = ckan_service.get_taxpayer_ratings(reg_number)
+            # Convert all rating records to TaxpayerRatingData objects
+            for rating_record in rating_records:
+                from app.models.company import TaxpayerRatingData
+                taxpayer_rating = TaxpayerRatingData(
+                    registracijas_kods=rating_record.get("registracijas_kods"),
+                    nosaukums=rating_record.get("nosaukums"),
+                    reitings=rating_record.get("reitings"),
+                    skaidrojums=rating_record.get("skaidrojums"),
+                    informacijas_atjaunosanas_datums=rating_record.get("informacijas_atjaunosanas_datums")
+                )
+                taxpayer_ratings.append(taxpayer_rating)
+            print(f"Found {len(taxpayer_ratings)} taxpayer rating records for company {reg_number}")
+        except Exception as rating_error:
+            # Log the error but continue without taxpayer ratings data
+            print(f"Error getting taxpayer ratings data: {rating_error}")
+        
         # Check if company is of type AS (Akciju Sabiedrība)
         is_stock_company = False
         try:
@@ -269,7 +289,8 @@ async def get_company_details(
                 # Add the stockholders data and flag
                 stockholders_data=stockholders_data,
                 is_stock_company=is_stock_company,
-                registry_data=record  # Keep original data in registry_data
+                registry_data=record,  # Keep original data in registry_data
+                taxpayer_ratings=taxpayer_ratings
             )
             return company
         except Exception as validation_error:

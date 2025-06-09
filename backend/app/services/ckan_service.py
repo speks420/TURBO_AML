@@ -20,6 +20,7 @@ class CKANService:
         self.liquidation_resource_id = settings.CKAN_LIQUIDATION_RESOURCE_ID
         self.officers_resource_id = settings.CKAN_OFFICERS_RESOURCE_ID
         self.stockholders_resource_id = settings.CKAN_STOCKHOLDERS_RESOURCE_ID
+        self.taxpayer_ratings_resource_id = settings.CKAN_TAXPAYER_RATINGS_RESOURCE_ID
         
         # Financial data resources
         self.financial_statements_resource_id = settings.CKAN_FINANCIAL_STATEMENTS_RESOURCE_ID
@@ -244,6 +245,30 @@ class CKANService:
         except ckanapi.errors.CKANAPIError as e:
             # Log error and reraise
             print(f"CKAN API error when fetching stockholders data: {e}")
+            return []
+            
+    def get_taxpayer_ratings(self, reg_number: str):
+        """
+        Get taxpayer rating data by registration number.
+        
+        Args:
+            reg_number: The company registration number
+            
+        Returns:
+            The taxpayer rating records
+        """
+        try:
+            result = self.client.action.datastore_search(
+                resource_id=self.taxpayer_ratings_resource_id,
+                filters={"registracijas_kods": reg_number}
+            )
+            
+            # Return all records as a company may have multiple rating entries
+            records = result.get("records", [])
+            return records
+        except ckanapi.errors.CKANAPIError as e:
+            # Log error and reraise
+            print(f"CKAN API error when fetching taxpayer ratings: {e}")
             return []
             
     # ===== FINANCIAL DATA METHODS =====
