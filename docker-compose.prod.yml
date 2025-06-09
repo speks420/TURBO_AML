@@ -1,5 +1,5 @@
 # TURBO_AML Production Environment
-# Optimized for deployment with Supabase integration
+# Optimized for deployment with Supabase integration and external access
 
 version: '3.8'
 
@@ -39,6 +39,7 @@ services:
       - DEBUG=False
       - API_HOST=0.0.0.0
       - API_PORT=8000
+      - EXTERNAL_IP=${EXTERNAL_IP}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
