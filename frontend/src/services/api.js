@@ -2,11 +2,12 @@ import axios from 'axios';
 
 // Create an Axios instance with default configuration
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Enable cookies for session management
+  // Removed withCredentials to fix CORS issues with external access
+  // withCredentials: true,
 });
 
 // Add a request interceptor for handling auth tokens, etc.
